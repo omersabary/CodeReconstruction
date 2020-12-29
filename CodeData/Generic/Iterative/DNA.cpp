@@ -307,8 +307,10 @@ void AdvanceFile(ifstream& input, const int caseNum) {
 
 // counting from 1
 // test [startCase,endCase]
-void TestFromFileCaseRange(const string& inputFilename, const string& outputFilename, const string& resultsFilename, int startCase, int endCase,
-		int strandLen, int maxCopies, int delPatternLen, const int subPriority, const int delPriority,
+void TestFromFileCaseRange(const string& inputFilename, const string& outputFilename,
+                           const string& resultsFilename_success, const string& resultsFilename_fail,
+                           int startCase, int endCase,
+        int strandLen, int maxCopies, int delPatternLen, const int subPriority, const int delPriority,
 		const int insPriority, const int maxReps) {
 	ifstream input;
 	input.open(inputFilename.c_str());
@@ -324,10 +326,17 @@ void TestFromFileCaseRange(const string& inputFilename, const string& outputFile
 		return;
 	}
     
-    ofstream results;
-    results.open(resultsFilename.c_str());
-    if (not results.is_open()) {
-        cout << "Error opening output file!" << endl;
+    ofstream results_success;
+    results_success.open(resultsFilename_success.c_str());
+    if (not results_success.is_open()) {
+        cout << "Error opening results file!" << endl;
+        return;
+    }
+    
+    ofstream results_fail;
+    results_fail.open(resultsFilename_fail.c_str());
+    if (not results_fail.is_open()) {
+        cout << "Error opening results file!" << endl;
         return;
     }
 
@@ -341,9 +350,11 @@ void TestFromFileCaseRange(const string& inputFilename, const string& outputFile
 
 	int cumTotalFinalGuessEditDist = 0, roundFinalGuessEditDist = 0;
 	int cumFinalGuessSubstitutions = 0, cumFinalGuessInsertions = 0, cumFinalGuessDeletions = 0;
+    double error_rate=0.0;
 	map<int, int> editDistanceHist;
     int majoCounter=0;
 	for (int i = 1; i <= testNum; i++) {
+        cout << i << endl;
 		GetCaseWithCopiesLimit(input, original, copies, maxCopies);
 		if (original.empty()) {
 			break;
@@ -370,12 +381,25 @@ void TestFromFileCaseRange(const string& inputFilename, const string& outputFile
 			finalGuess = cluster.TestBest(delPatternLen, roundFinalGuessEditDist, subPriority, delPriority, insPriority,
 					generator, maxReps);
 		}
-        results << original << endl;
-        results << finalGuess << endl << endl;
+
 
 		roundFinalGuessEditDist = ComputeEditDistanceNum(cluster.Original(), finalGuess);
 		editDistanceHist[roundFinalGuessEditDist]++;
 		cumTotalFinalGuessEditDist += roundFinalGuessEditDist;
+        if(roundFinalGuessEditDist>0){
+            results_fail << "Cluster Num: " << i << endl;
+            results_fail << original << endl;
+            results_fail << finalGuess << endl;
+            results_fail << "Distance: " << roundFinalGuessEditDist << endl << endl;
+
+        }
+        else{
+            results_success << "Cluster Num: " << i << endl;
+            results_success << original << endl;
+            results_success << finalGuess << endl;
+            results_success << "Distance: " << roundFinalGuessEditDist << endl << endl;
+
+        }
 
 		vector<LetterOps> result = ComputeEditDistancePriority(finalGuess, cluster.Original(), 0, generator);
 		map<string, double> countOperations = CountOperations(result);
@@ -384,6 +408,8 @@ void TestFromFileCaseRange(const string& inputFilename, const string& outputFile
 		cumFinalGuessSubstitutions += countOperations["R"];
 		cumFinalGuessInsertions += countOperations["I"];
 		cumFinalGuessDeletions += countOperations["D"];
+        if(original.length())
+            error_rate= ( (i-1)*error_rate +(roundFinalGuessEditDist/(original.length()1)) )/i;
 	}
 	cout << "StartCase:\t" << startCase << endl;
 	cout << "EndCase:\t" << endCase << endl;
@@ -404,12 +430,16 @@ void TestFromFileCaseRange(const string& inputFilename, const string& outputFile
 	cout << "guess deletions:\t" << cumFinalGuessDeletions << endl;
 	cout << "guess insertions:\t" << cumFinalGuessInsertions << endl;
 	cout << "guess edit dist:\t" << cumTotalFinalGuessEditDist << endl;
+    cout << "Error rate:\t" << error_rate << endl;
+    cout << "Success rate:\t" << (double)(editDistanceHist[0])/editDistanceHist[highestED] << endl;
     cout << "number of majority test " << majoCounter << endl;
 
 	output << "guess substitutions:\t" << cumFinalGuessSubstitutions << endl;
 	output << "guess deletions:\t" << cumFinalGuessDeletions << endl;
 	output << "guess insertions:\t" << cumFinalGuessInsertions << endl;
 	output << "guess edit dist:\t" << cumTotalFinalGuessEditDist << endl;
+    output << "Error rate:\t" << error_rate << endl;
+    output << "Success rate:\t" << (double)(editDistanceHist[0])/editDistanceHist[highestED] << endl;
     output << "number of majority test " << majoCounter << endl;
 	input.close();
 	output.close();
@@ -563,14 +593,15 @@ int main() {
     int endCase = 4000000;
 
 	string outputFileName = "output.txt";
-    string resultsFileName = "output-results.txt";
+    string resultsFileName_success = "output-results-success.txt";
+    string resultsFileName_fail = "output-results-fail.txt";
 
 //	int startCase = 400001;
 //	int endCase = 596499;
 //	string outputFileName = "LuisOutC.txt";
 
-	TestFromFileCaseRange("evyat.txt", outputFileName, resultsFileName, startCase, endCase, 150, maxCopies, delPatternLen,
-			subPriority, delPriority, insPriority, maxReps);
+    TestFromFileCaseRange("evyat.txt", outputFileName, resultsFileName_success, resultsFileName_fail, startCase, endCase, 150, maxCopies, delPatternLen,
+            subPriority, delPriority, insPriority, maxReps);
 //	TestFromFile("evyaA.txt", testNum, 152, maxCopies, delPatternLen, subPriority, delPriority, insPriority,
 //				maxReps);
 

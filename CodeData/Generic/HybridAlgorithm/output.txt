@@ -6,6 +6,6 @@ guess substitutions:	0
 guess deletions:	0
 guess insertions:	0
 guess edit dist:	0
-error rate:	0
-SR:	1
+Error rate:	0
+Success rate:	1
 number of majority test 2385

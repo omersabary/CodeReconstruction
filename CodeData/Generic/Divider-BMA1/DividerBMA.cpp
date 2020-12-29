@@ -1523,7 +1523,17 @@ int main()
             // open the input file
             std::ifstream strands_file;
             strands_file.open("evyat.txt");
-            
+        int i=0;
+        string line_count;
+
+            while(!strands_file.eof()){
+                getline(strands_file, line_count);
+                if(line_count=="*****************************")
+                    i++;
+            }
+        //cout << i << endl;
+        strands_file.close();
+        strands_file.open("evyat.txt");
             std::ofstream results_fail;
             results_fail.open("output-results-fail.txt");
         
@@ -1536,10 +1546,10 @@ int main()
             int nt=0;
             int ct=0;
             while(!strands_file.eof()){
-                if(!nt%500){
-                    cout << nt << endl;
+                if(!nt%100){
+                    //cout << (double)nt/i << endl;
                 }
-                cout << nt << endl;
+                cout << (double)nt/i << endl;
 
                 cluster.clear();
                 if(strands_file.eof()){
@@ -1622,7 +1632,7 @@ int main()
                 //cout << cluster[0] << endl;
                 string matika = makeMajorityEditDistance(cluster, original.length());
                 string matika_rev =makeMajorityEditDistance(reverse_cluster, original.length());
-                cout << nt << endl;
+                //cout << nt << endl;
 
                 string nmatika="";
                 for(int k=0; k<DES_LEN; k++){

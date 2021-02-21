@@ -1,4 +1,4 @@
-
+ 
 #include <iostream>
 #include <vector>
 #include <algorithm>
@@ -171,6 +171,11 @@ unsigned int edit_distance(const std::string& s1, const std::string& s2)
     return d[len1][len2];
 }
 
+struct LetterOps {
+    std::string insert; // string to insert before letter
+    std::string CDR; // Copy or Delete or Substitute letter
+    std::string opParam; // Which letter to copy or which to delete or which to substitute with
+};
 
 /* this is a function that help us print the trace of two sequences */
 string printTrace(string word1, string word2,vector< vector<int > > backtrace){
@@ -1460,7 +1465,252 @@ string LOOKAhead_Majority(vector<string> &cluster, int des_len, int w){
     return output;
 }
 
+int getTestNum(const string& inputFilename){
+    ifstream input;
+    input.open(inputFilename.c_str());
+    if (!input.is_open()) {
+        cout << "Failed opening input file!" << endl;
+        return -1;
+    }
+    string line;
+    int count=0;
+    while (getline(input, line)) {
+        if (line[0]=='*') {
+            count++;
+        }
+    }
+    return count;
+}
 
+int EditDistanceArray(const string& X, const string& Y, int m, int n, vector<vector<int> >& dp) {
+    for (int i = 0; i <= m; i++) {
+        for (int j = 0; j <= n; j++) {
+            if (i == 0) {
+                dp[i][j] = j;
+            }
+            else if (j == 0) {
+                dp[i][j] = i;
+            }
+            else if (X[i - 1] == Y[j - 1]) {
+                dp[i][j] = dp[i - 1][j - 1];
+            }
+            else {
+                dp[i][j] = 1 + min(min(dp[i][j - 1], dp[i - 1][j]), dp[i - 1][j - 1]);
+            }
+        }
+    }
+    return dp[m][n];
+}
+
+
+// subPriority, delPriority, insPriority - permutation of 1,2,3
+vector<LetterOps> BacktrackEditDistancePriority(const string& X, const string& Y, int m, int n,
+        const vector<vector<int> >& dp, const int subPriority, const int insPriority, const int delPriority) {
+    vector<LetterOps> s(X.size() + 1);
+    if (m == 0) {
+        s[0].insert = Y.substr(0, n);
+        return s;
+    }
+    else if (n == 0) {
+        for (int index = 0; index < m; index++) {
+            s[index].CDR = "D";
+        }
+        return s;
+    }
+    if (X[m - 1] == Y[n - 1]) {
+        vector<LetterOps> s = BacktrackEditDistancePriority(X, Y, m - 1, n - 1, dp, subPriority, insPriority,
+                delPriority);
+        s[m - 1].CDR = "C";
+        s[m - 1].opParam = string(1, X[m - 1]);
+        return s;
+    }
+    else {
+        int subEqual = 0, delEqual = 0, insEqual = 0;
+        if (dp[m][n] == dp[m - 1][n - 1] + 1) {
+            subEqual = 1;
+        }
+        if (dp[m][n] == dp[m][n - 1] + 1) {
+            insEqual = 1;
+        }
+        if (dp[m][n] == dp[m - 1][n] + 1) {
+            delEqual = 1;
+        }
+        int subScore = subEqual * subPriority, delScore = delEqual * delPriority, insScore = insEqual * insPriority;
+        bool chooseSub = false, chooseDel = false, chooseIns = false;
+        if (subScore > delScore and subScore > insScore) {
+            chooseSub = true;
+        }
+        else if (delScore > subScore and delScore > insScore) {
+            chooseDel = true;
+        }
+        else {
+            assert(insScore > subScore and insScore > delScore);
+            chooseIns = true;
+        }
+        if (chooseSub) {      // replace
+            vector<LetterOps> s1 = BacktrackEditDistancePriority(X, Y, m - 1, n - 1, dp, subPriority, insPriority,
+                    delPriority);
+            s1[m - 1].CDR = "R";
+            s1[m - 1].opParam = string(1, Y[n - 1]);
+            return s1;
+        }
+
+        else if (chooseIns) {         // insert
+            vector<LetterOps> s2 = BacktrackEditDistancePriority(X, Y, m, n - 1, dp, subPriority, insPriority,
+                    delPriority);
+            s2[m].insert += Y[n - 1];
+            return s2;
+        }
+        else {            // delete
+            assert(chooseDel);
+            vector<LetterOps> s3 = BacktrackEditDistancePriority(X, Y, m - 1, n, dp, subPriority, insPriority,
+                    delPriority);
+            s3[m - 1].CDR = "D";
+            return s3;
+        }
+    }
+}
+
+vector<LetterOps> BacktrackEditDistanceRandom(const string& X, const string& Y, int m, int n,
+        const vector<vector<int> >& dp, vector<int>& priorities, mt19937& generator) {
+    vector<LetterOps> s(X.size() + 1);
+    if (m == 0) {
+        s[0].insert = Y.substr(0, n);
+        return s;
+    }
+    else if (n == 0) {
+        for (int index = 0; index < m; index++) {
+            s[index].CDR = "D";
+        }
+        return s;
+    }
+    if (X[m - 1] == Y[n - 1]) {
+        vector<LetterOps> s = BacktrackEditDistanceRandom(X, Y, m - 1, n - 1, dp, priorities, generator);
+        s[m - 1].CDR = "C";
+        s[m - 1].opParam = string(1, X[m - 1]);
+        return s;
+    }
+    else {
+        //random_shuffle(priorities.begin(),priorities.end());
+        shuffle(priorities.begin(), priorities.end(), generator);
+        int subEqual = 0, delEqual = 0, insEqual = 0;
+        if (dp[m][n] == dp[m - 1][n - 1] + 1) {
+            subEqual = 1;
+        }
+        if (dp[m][n] == dp[m][n - 1] + 1) {
+            insEqual = 1;
+        }
+        if (dp[m][n] == dp[m - 1][n] + 1) {
+            delEqual = 1;
+        }
+        int subScore = subEqual * priorities[0], delScore = delEqual * priorities[2], insScore = insEqual
+                * priorities[1];
+        bool chooseSub = false, chooseDel = false, chooseIns = false;
+        if (subScore > delScore and subScore > insScore) {
+            chooseSub = true;
+        }
+        else if (delScore > subScore and delScore > insScore) {
+            chooseDel = true;
+        }
+        else {
+            assert(insScore > subScore and insScore > delScore);
+            chooseIns = true;
+        }
+        if (chooseSub) {      // replace
+            vector<LetterOps> s1 = BacktrackEditDistanceRandom(X, Y, m - 1, n - 1, dp, priorities, generator);
+            s1[m - 1].CDR = "R";
+            s1[m - 1].opParam = string(1, Y[n - 1]);
+            return s1;
+        }
+
+        else if (chooseIns) {         // insert
+            vector<LetterOps> s2 = BacktrackEditDistanceRandom(X, Y, m, n - 1, dp, priorities, generator);
+            s2[m].insert += Y[n - 1];
+            return s2;
+        }
+        else {            // delete
+            assert(chooseDel);
+            vector<LetterOps> s3 = BacktrackEditDistanceRandom(X, Y, m - 1, n, dp, priorities, generator);
+            s3[m - 1].CDR = "D";
+            return s3;
+        }
+    }
+}
+
+// priority: R - replace, I - insert, D - delete
+// 0 - RID = [3,2,1]
+// 1 - RDI = [3,1,2]
+// 2 - IRD = [2,3,1]
+// 3 - IDR = [1,3,2]
+// 4 - DRI = [2,1,3]
+// 5 - DIR = [1,2,3]
+// 6 - Random branch each time
+vector<LetterOps> ComputeEditDistancePriority(const string& X, const string& Y, const int priority,
+        mt19937& generator) {
+
+    int m = X.length(), n = Y.length();
+    vector<vector<int> > dp(m + 1, vector<int>(n + 1));
+    vector<LetterOps> result;
+    EditDistanceArray(X, Y, m, n, dp);
+    if (priority == 0) {
+        result = BacktrackEditDistancePriority(X, Y, m, n, dp, 3, 2, 1);
+    }
+    else if (priority == 1) {
+        result = BacktrackEditDistancePriority(X, Y, m, n, dp, 3, 1, 2);
+    }
+    else if (priority == 2) {
+        result = BacktrackEditDistancePriority(X, Y, m, n, dp, 2, 3, 1);
+    }
+    else if (priority == 3) {
+        result = BacktrackEditDistancePriority(X, Y, m, n, dp, 1, 3, 2);
+    }
+    else if (priority == 4) {
+        result = BacktrackEditDistancePriority(X, Y, m, n, dp, 2, 1, 3);
+    }
+    else if (priority == 5) {
+        result = BacktrackEditDistancePriority(X, Y, m, n, dp, 1, 2, 3);
+    }
+    else {
+        assert(priority == 6);
+        vector<int> priorities { 1, 2, 3 };
+        result = BacktrackEditDistanceRandom(X, Y, m, n, dp, priorities, generator);
+    }
+    return result;
+}
+
+
+//vector<LetterOps> ComputeEditDistanceOperations(const string& X, const string& Y) {
+//
+//    int m = X.length(), n = Y.length();
+//    vector<vector<int> > dp(m + 1, vector<int>(n + 1));
+//
+//    EditDistanceArray(X, Y, m, n, dp);
+//    return BacktrackEditDistanceOperations(X, Y, m, n, dp);
+//}
+
+int ComputeEditDistanceNum(const string& X, const string& Y) {
+
+    int m = X.length(), n = Y.length();
+    vector<vector<int> > dp(m + 1, vector<int>(n + 1));
+
+    return EditDistanceArray(X, Y, m, n, dp);
+}
+
+map<string, double> CountOperations(const vector<LetterOps>& opList) {
+    map<string, double> count;
+    count["C"] = 0;
+    count["I"] = 0;
+    count["D"] = 0;
+    count["R"] = 0;
+
+    for (vector<LetterOps>::const_iterator it = opList.begin(); it != opList.end(); it++) {
+        if (not it->CDR.empty()) {
+            count[it->CDR]++;
+        }
+        count["I"] += it->insert.size();
+    }
+    return count;
+}
 
 // main function
 int main()
@@ -1468,6 +1718,7 @@ int main()
     auto start = high_resolution_clock::now();
 
     double succes_rate=0.0;
+    int testNum=getTestNum("evyat.txt");
     try{
         int counterOfGoodLen=0;
         string original;
@@ -1480,63 +1731,22 @@ int main()
         double res_sub;
         
     for(d_prob = 0.01 ; d_prob<=0.01; d_prob+=0.01){
-        clus_size = 10;
-        num_of_test=1;
-        /*cout << "Cluster Size: " << clus_size << endl;
-        cout << "Prob: " << d_prob << endl;
-        cout << "Actual Prob: " << (1-pow(1-d_prob,3)) << endl;
-        cout << "Num of Tests: " << num_of_test << endl;
-        cout << "Design len: " << DES_LEN << endl;*/
-        
-        
-        int SR_histo_MATIKA[DES_LEN]={0};
-        int SR_histo_D_R[DES_LEN]={0};
-        int SR_histo_karin[DES_LEN]={0};
-        int SR_histo_karin_w3[DES_LEN]={0};
-        int SR_histo_karin_w4[DES_LEN]={0};
-
-        
-        double succes_rate_BMA=0.0;
-        double succes_rate_Matika=0.0;
-        double succes_rate_DR=0.0;
-        double succes_rate_karin=0.0;
-        double succes_rate_karin_w3=0.0;
-        double succes_rate_karin_w4=0.0;
-
-        
-        int total_dis_tests_BMA = 0;
-        int total_dis_tests_DR = 0;
-        int total_dis_tests_Matika = 0;
-        int total_dis_tests_karin = 0;
-        int total_dis_tests_karin_w3 = 0;
-        int total_dis_tests_karin_w4 = 0;
-        
-        int total_dis_tests_del = 0;
-        int total_dis_tests_ins = 0;
-        int total_dis_tests_sub = 0;
-        //int nt=0;
-        //while(nt<num_of_test){
+        unsigned sd = chrono::high_resolution_clock::now().time_since_epoch().count();
+        mt19937 generator(sd);
+        int roundFinalGuessEditDist = 0;
+        double cumTotalFinalGuessEditDist = 0;
+        double cumFinalGuessSubstitutions = 0, cumFinalGuessInsertions = 0, cumFinalGuessDeletions = 0;
+        double error_rate=0.0;
+        map<int, int> editDistanceHist;
             cluster.clear();
-            //original=genRandomSeq(DES_LEN, q);
-            //createNoisyCluster_edit_equal(cluster, original, clus_size, d_prob);
-            //createNoisyCluster_edit(cluster, original, clus_size, d_prob, d_prob, d_prob);
-            // open the input file
             std::ifstream strands_file;
             strands_file.open("evyat.txt");
-        int i=0;
-        string line_count;
-
-            while(!strands_file.eof()){
-                getline(strands_file, line_count);
-                if(line_count=="*****************************")
-                    i++;
-            }
-        //cout << i << endl;
         strands_file.close();
         strands_file.open("evyat.txt");
             std::ofstream results_fail;
             results_fail.open("output-results-fail.txt");
-        
+            std::ofstream output;
+            output.open("output.txt");
             std::ofstream results_success;
             results_success.open("output-results-success.txt");
             //cerr << "file" << endl;
@@ -1545,11 +1755,10 @@ int main()
             }
             int nt=0;
             int ct=0;
+        int i=0;
             while(!strands_file.eof()){
-                if(!nt%100){
-                    //cout << (double)nt/i << endl;
-                }
-                cout << (double)nt/i << endl;
+                cout << int(100*(double(++i)/testNum)) << endl;
+
 
                 cluster.clear();
                 if(strands_file.eof()){
@@ -1558,7 +1767,6 @@ int main()
                 }
                 string original_bck=original;
                 getline(strands_file, original);
-                //cout << original << endl;
                 if(original.length()<5){
                     original=original_bck;
                 }
@@ -1568,72 +1776,20 @@ int main()
                 }
                 string line="";
                 getline(strands_file, line); // line of "****"
-               // cout << line << endl;
+                //int nccc=0;
                 while(line.length()>1 && !strands_file.eof()){
                     getline(strands_file, line);
-                    cluster.push_back(line);
-                    //cout << line << endl;
-
+                    //if(nccc++ < 25)
+                        cluster.push_back(line);
                 }
                 getline(strands_file, line);
-                //cout << line << endl;
-
                 vector <string> reverse_cluster;
                 for(string cp:cluster){
                     reverseStr(cp);
                     reverse_cluster.push_back(cp);
                 }
-                /*string karin = LOOKAhead_Majority(cluster, DES_LEN, 2);
-                string karin_rev = LOOKAhead_Majority(reverse_cluster, DES_LEN, 2);
-                //reverseStr(karin_rev);
-                string nkarin="";
-                for(int k=0; k<DES_LEN; k++){
-                    if(k<DES_LEN/2)
-                        nkarin.insert(nkarin.begin(), karin_rev[k]);
-                }
-                for(int k=DES_LEN/2-1; k>=0; k--){
-                    nkarin.insert(nkarin.begin(), karin[k]);
-
-                }
-
-                karin=nkarin;
-                //cout << karin << endl;
-
-                string karin_w3 = LOOKAhead_Majority(cluster, DES_LEN, 3);
-                string karin_rev_w3 = LOOKAhead_Majority(reverse_cluster, DES_LEN, 3);
-                //reverseStr(karin_rev);
-                string nkarin_w3="";
-                for(int k=0; k<DES_LEN; k++){
-                    if(k<DES_LEN/2)
-                        nkarin_w3.insert(nkarin_w3.begin(), karin_rev_w3[k]);
-                }
-                for(int k=DES_LEN/2-1; k>=0; k--){
-                    nkarin_w3.insert(nkarin_w3.begin(), karin_w3[k]);
-
-                }
-
-                karin_w3=nkarin_w3;
-                
-                string karin_w4 = LOOKAhead_Majority(cluster, DES_LEN, 4);
-                string karin_rev_w4 = LOOKAhead_Majority(reverse_cluster, DES_LEN, 4);
-                //reverseStr(karin_rev);
-                string nkarin_w4="";
-                for(int k=0; k<DES_LEN; k++){
-                    if(k<DES_LEN/2)
-                        nkarin_w4.insert(nkarin_w4.begin(), karin_rev_w4[k]);
-                }
-                for(int k=DES_LEN/2-1; k>=0; k--){
-                    nkarin_w4.insert(nkarin_w4.begin(), karin_w4[k]);
-
-                }
-
-                karin_w4=nkarin_w4;
-                */
-                //cout << cluster[0] << endl;
                 string matika = makeMajorityEditDistance(cluster, original.length());
                 string matika_rev =makeMajorityEditDistance(reverse_cluster, original.length());
-                //cout << nt << endl;
-
                 string nmatika="";
                 for(int k=0; k<DES_LEN; k++){
                     if(k<DES_LEN/2)
@@ -1645,224 +1801,75 @@ int main()
                 }
                 matika = nmatika;
 
-                /*string lookback =LOOKBack_Majority(cluster, cluster[0].length());
-                string lookback_rev =LOOKBack_Majority(reverse_cluster, cluster[0].length());
-                string nlookback="";
-                for(int k=0; k<DES_LEN; k++){
-                    if(k<DES_LEN/2)
-                        nlookback.insert(nlookback.begin(), lookback_rev[k]);
-                }
-                for(int k=DES_LEN/2-1; k>=0; k--){
-                    nlookback.insert(nlookback.begin(), lookback[k]);
-
-                }
-                lookback = nlookback;*/
-                //string bma =BMA(cluster, DES_LEN);
                 
                 string recon=matika;
-                int dis = int(edit_distance(recon, original));
-                for (int i=dis; i<DES_LEN; i++){
-                    SR_histo_MATIKA[i]++;
+                //int dis = int(edit_distance(recon, original));
+                //for (int i=dis; i<DES_LEN; i++){
+                //    SR_histo_MATIKA[i]++;
+                //}
+                //total_dis_tests_Matika += dis;
+                //succes_rate_Matika+= dis > 0 ? 0 : 1;
+                roundFinalGuessEditDist = ComputeEditDistanceNum(original, recon);
+                editDistanceHist[roundFinalGuessEditDist]++;
+                vector<LetterOps> result = ComputeEditDistancePriority(recon, original, 0, generator);
+                map<string, double> countOperations = CountOperations(result);
+                assert(countOperations["I"] + countOperations["D"] + countOperations["R"] == roundFinalGuessEditDist);
+                if(original.length()){
+                    cumTotalFinalGuessEditDist =((i-1)*cumTotalFinalGuessEditDist+double(roundFinalGuessEditDist)/(original.length() ))/i;
+                    cumFinalGuessSubstitutions =((i-1)*cumFinalGuessSubstitutions+(countOperations["R"])/(original.length() ))/i;
+                    cumFinalGuessInsertions =((i-1)*cumFinalGuessInsertions+(countOperations["I"])/(original.length() ))/i;
+                    cumFinalGuessDeletions =((i-1)*cumFinalGuessDeletions+((countOperations["D"])/(original.length())))/i;
+                    error_rate= ((i-1) *error_rate +(double(roundFinalGuessEditDist)/(original.length())))/i;
                 }
-                total_dis_tests_Matika += dis;
-                succes_rate_Matika+= dis > 0 ? 0 : 1;
-                if(dis>0){
+                
+                if(roundFinalGuessEditDist>0){
                     results_fail << "Cluster Num: " << ct << endl;
                     results_fail << original << endl;
                     results_fail << recon << endl;
-                    results_fail << "Distance: " << dis << endl << endl;
+                    results_fail << "Distance: " << roundFinalGuessEditDist << endl << endl;
                 }
                 else{
                     results_success << "Cluster Num: " << ct << endl;
                     results_success << original << endl;
                     results_success << recon << endl;
-                    results_success << "Distance: " << dis << endl << endl;
-
+                    results_success << "Distance: " << roundFinalGuessEditDist << endl << endl;
                 }
             
-                /*recon=lookback;
-                dis = int(edit_distance(recon, original));
-                for (int i=dis; i<DES_LEN; i++){
-                    SR_histo_D_R[i]++;
-                }
-                total_dis_tests_DR += dis;
-                succes_rate_DR+= dis > 0 ? 0 : 1;
-            
-                recon=karin;
-                dis = int(edit_distance(recon, original));
-                for (int i=dis; i<DES_LEN; i++){
-                    SR_histo_karin[i]++;
-                }
-                total_dis_tests_karin += dis;
-                succes_rate_karin+= dis > 0 ? 0 : 1;
-                
-                
-                recon=karin_w3;
-                dis = int(edit_distance(recon, original));
-                for (int i=dis; i<DES_LEN; i++){
-                    SR_histo_karin_w3[i]++;
-                }
-                total_dis_tests_karin_w3 += dis;
-                succes_rate_karin_w3+= dis > 0 ? 0 : 1;
-                
-                recon=karin_w4;
-                dis = int(edit_distance(recon, original));
-                for (int i=dis; i<DES_LEN; i++){
-                    SR_histo_karin_w4[i]++;
-                }
-                total_dis_tests_karin_w4 += dis;
-                succes_rate_karin_w4+= dis > 0 ? 0 : 1;
-                recon=bma;
-                dis = int(edit_distance(recon, original));
-                for (int i=dis; i<DES_LEN; i++){
-                    SR_histo_BMA[i]++;
-                }
-                total_dis_tests_BMA += dis;
-                succes_rate_BMA+= dis > 0 ? 0 : 1;*/
                 nt++;
                 ct++;
                 num_of_test=nt;
             }
-        //}
+        map<int, int>::reverse_iterator rit = editDistanceHist.rbegin(); // points to last element in map
+        int highestED = rit->first;
+        int cumDist = 0;
+        cout << "Total number of clusters: " << testNum << endl;
+        output << "Total number of clusters: " << testNum << endl;
 
-        cout << endl << endl;
-        
-        cout << "******* DIVIDER BMA ALG ********"<< endl;
-        double res_Matika = (double)(total_dis_tests_Matika) / (num_of_test);
-        res_Matika = res_Matika / original.length();
-        cout << "Error rate:\t" << res_Matika << endl;
-        cout << "Succes rate:\t" << succes_rate_Matika/(num_of_test)<< endl;
-        cout << "SR histo:\t" << endl;
-        cout << "[";
-        for(int i=0;i<DES_LEN; i++){
-            if(i==0){
-                cout << SR_histo_MATIKA[i];
-            }
-            else{
-                if(i==DES_LEN-1){
-                    cout << ", " << SR_histo_MATIKA[i] << "]" << endl;
-                }
-                else{
-                    cout << ", " << SR_histo_MATIKA[i];
-                }
-            }
+        cout << "Edit distance hist:" << endl;
+        output << "Edit distance hist:" << endl;
+        for (int i = 0; i <= highestED; i++) {
+            cumDist += editDistanceHist[i];
+            cout << i << "\t" << cumDist << endl;
+            output << i << "\t" << cumDist << endl;
         }
-        cout << endl << endl;
-    
-        /*cout << "******* LOOKAHEAD ALG w2 ********"<< endl;
-        double res_karin = (double)(total_dis_tests_karin) / (num_of_test);
-        res_karin = res_karin / original.length();
-        cout << "Error rate karin: " << res_karin << endl;
-        cout << "Succes rate karin: " << succes_rate_karin/(num_of_test)<< endl;
-        cout << "SR histo karin: " << endl;
-        cout << "[";
-        for(int i=0;i<DES_LEN; i++){
-            if(i==0){
-                cout << SR_histo_karin[i];
-            }
-            else{
-                if(i==DES_LEN-1){
-                    cout << ", " << SR_histo_karin[i] << "]" << endl;
-                }
-                else{
-                    cout << ", " << SR_histo_karin[i];
-                }
-            }
 
+        cout << "Substitution rate:\t" << cumFinalGuessSubstitutions << endl;
+        cout << "Deletion rate:\t" << cumFinalGuessDeletions << endl;
+        cout << "Insertion rate:\t" << cumFinalGuessInsertions << endl;
+        //cout << "guess edit dist:\t" << cumTotalFinalGuessEditDist << endl;
+        cout << "Error rate:\t" << error_rate << endl;
+        cout << "Success rate:\t" << (double)(editDistanceHist[0])/testNum << endl;
+        //cout << "number of majority test " << majoCounter << endl;
 
-        }
-        cout << endl << endl;
-        
-        cout << "******* LOOKAHEAD ALG w3 ********"<< endl;
-        double res_karin_w3 = (double)(total_dis_tests_karin_w3) / (num_of_test);
-        res_karin_w3 = res_karin_w3 / original.length();
-        cout << "Error rate karin: " << res_karin_w3 << endl;
-        cout << "Succes rate karin: " << succes_rate_karin_w3/(num_of_test)<< endl;
-        cout << "SR histo karin: " << endl;
-        cout << "[";
-        for(int i=0;i<DES_LEN; i++){
-            if(i==0){
-                cout << SR_histo_karin_w3[i];
-            }
-            else{
-                if(i==DES_LEN-1){
-                    cout << ", " << SR_histo_karin_w3[i] << "]" << endl;
-                }
-                else{
-                    cout << ", " << SR_histo_karin_w3[i];
-                }
-            }
-
-
-        }
-        cout << endl << endl;
-        
-        
-        cout << "******* LOOKAHEAD ALG w4 ********"<< endl;
-        double res_karin_w4 = (double)(total_dis_tests_karin_w4) / (num_of_test);
-        res_karin_w4 = res_karin_w4 / original.length();
-        cout << "Error rate karin: " << res_karin_w4 << endl;
-        cout << "Succes rate karin: " << succes_rate_karin_w4/(num_of_test)<< endl;
-        cout << "SR histo karin: " << endl;
-        cout << "[";
-        for(int i=0;i<DES_LEN; i++){
-            if(i==0){
-                cout << SR_histo_karin_w4[i];
-            }
-            else{
-                if(i==DES_LEN-1){
-                    cout << ", " << SR_histo_karin_w4[i] << "]" << endl;
-                }
-                else{
-                    cout << ", " << SR_histo_karin_w4[i];
-                }
-            }
-
-
-        }
-        cout << endl << endl;
-        
-        cout << "******* DAFNA RON ALG ********"<< endl;
-        double res_DR = (double)(total_dis_tests_DR) / (num_of_test);
-        res_DR = res_DR / original.length();
-        cout << "Error rate DR: " << res_DR << endl;
-        cout << "Succes rate DR: " << succes_rate_DR/(num_of_test) << endl;
-        cout << "SR histo DR: " << endl;
-        cout << "[";
-        for(int i=0;i<DES_LEN; i++){
-            if(i==0){
-                cout << SR_histo_D_R[i];
-            }
-            else{
-                if(i==DES_LEN-1){
-                    cout << ", " << SR_histo_D_R[i] << "]" << endl;
-                }
-                else{
-                    cout << ", " << SR_histo_D_R[i];
-                }
-            }
-        }
-        cout << endl << endl;
-        
-        
-        cout << "******* DAFNA RON ALG ********"<< endl;
-        double res_BMA = (double)(total_dis_tests_BMA) / (num_of_test);
-        res_BMA = res_BMA / original.length();
-        cout << "Error rate BMA: " << res_BMA << endl;
-        cout << "Succes rate BMA: " << succes_rate_BMA/(num_of_test) << endl;
-        cout << "SR histo BMA: " << endl;
-        cout << "[";
-        for(int i=0;i<DES_LEN; i++){
-            if(i!=0)
-                cout << ", " << SR_histo_BMA[i];
-            if(i==DES_LEN-1)
-                cout << SR_histo_BMA[i] << "]" << endl;
-            else
-                cout << SR_histo_BMA[i];
-
-        }
-        cout << endl << endl;*/
-        
+        output << "Substitution rate:\t" << cumFinalGuessSubstitutions << endl;
+        output << "Deletion rate:\t" << cumFinalGuessDeletions << endl;
+        output << "Insertion rate:\t" << cumFinalGuessInsertions << endl;
+        //output << "guess edit dist:\t" << cumTotalFinalGuessEditDist << endl;
+        output << "Error rate:\t" << error_rate << endl;
+        output << "Success rate:\t" << (double)(editDistanceHist[0])/testNum << endl;
+        //output << "number of majority test " << majoCounter << endl;
+        //input.close();
+        //output.close();
     }
 
     }

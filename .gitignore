@@ -1,0 +1,17 @@
+
+CodeData/Generic/Iterative/output-results-success.txt
+*.o
+CodeData/Generic/.DS_Store
+CodeData/.DS_Store
+.DS_Store
+CodeData/Generic/BMA_Lookahead/LA
+CodeData/Generic/Divider-BMA1/Div
+*.o
+CodeData/Generic/HybridAlgorithm/Hyb
+CodeData/Generic/Iterative/Hyb
+CodeData/Generic/HybridAlgorithm/output-results-success.txt
+CodeData/Generic/HybridAlgorithm/output-results-fail.txt
+CodeData/Generic/Iterative/output-results-success.txt
+CodeData/Generic/BMA_Lookahead/output-results-success.txt
+CodeData/Generic/BMA_Lookahead/output.txt
+CodeData/Generic/Divider-BMA1/output.txt

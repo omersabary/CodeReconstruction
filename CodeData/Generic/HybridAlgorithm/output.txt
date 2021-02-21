@@ -1,11 +1,15 @@
-StartCase:	1
-EndCase:	4000000
+Total number of clusters: 2386
 Edit distance hist:
-0	2385
-guess substitutions:	0
-guess deletions:	0
-guess insertions:	0
-guess edit dist:	0
-Error rate:	0
-Success rate:	1
+0	2371
+1	2375
+2	2383
+3	2383
+4	2383
+5	2383
+6	2385
+Substitution rate:	3.31016e-05
+Deletion rate:	2.75847e-05
+Insertion rate:	2.75847e-05
+Error rate:	8.8271e-05
+Success rate:	0.993713
 number of majority test 2385

@@ -347,14 +347,14 @@ void TestFromFileCaseRange(const string& inputFilename, const string& outputFile
 	int testNum = endCase - startCase + 1;
 	unsigned sd = chrono::high_resolution_clock::now().time_since_epoch().count();
 	mt19937 generator(sd);
-
-	int cumTotalFinalGuessEditDist = 0, roundFinalGuessEditDist = 0;
-	int cumFinalGuessSubstitutions = 0, cumFinalGuessInsertions = 0, cumFinalGuessDeletions = 0;
+    int roundFinalGuessEditDist = 0;
+    double cumTotalFinalGuessEditDist = 0;
+    double cumFinalGuessSubstitutions = 0, cumFinalGuessInsertions = 0, cumFinalGuessDeletions = 0;
     double error_rate=0.0;
 	map<int, int> editDistanceHist;
     int majoCounter=0;
 	for (int i = 1; i <= testNum; i++) {
-        cout << i << endl;
+        cout << int(100*(double(i)/testNum)) << endl;
 		GetCaseWithCopiesLimit(input, original, copies, maxCopies);
 		if (original.empty()) {
 			break;
@@ -405,11 +405,13 @@ void TestFromFileCaseRange(const string& inputFilename, const string& outputFile
 		map<string, double> countOperations = CountOperations(result);
 		assert(countOperations["I"] + countOperations["D"] + countOperations["R"] == roundFinalGuessEditDist);
 
-		cumFinalGuessSubstitutions += countOperations["R"];
-		cumFinalGuessInsertions += countOperations["I"];
-		cumFinalGuessDeletions += countOperations["D"];
-        if(original.length())
-            error_rate= ( (i-1)*error_rate +(roundFinalGuessEditDist/(original.length()1)) )/i;
+        if(original.length()){
+            cumTotalFinalGuessEditDist =((i-1)*cumTotalFinalGuessEditDist+double(roundFinalGuessEditDist)/(original.length() ))/i;
+            cumFinalGuessSubstitutions =((i-1)*cumFinalGuessSubstitutions+(countOperations["R"])/(original.length() ))/i;
+            cumFinalGuessInsertions =((i-1)*cumFinalGuessInsertions+(countOperations["I"])/(original.length() ))/i;
+            cumFinalGuessDeletions =((i-1)*cumFinalGuessDeletions+((countOperations["D"])/(original.length())))/i;
+            error_rate= ((i-1) *error_rate +(double(roundFinalGuessEditDist)/(original.length())))/i;
+        }
 	}
 	cout << "StartCase:\t" << startCase << endl;
 	cout << "EndCase:\t" << endCase << endl;
@@ -418,28 +420,31 @@ void TestFromFileCaseRange(const string& inputFilename, const string& outputFile
 	map<int, int>::reverse_iterator rit = editDistanceHist.rbegin(); // points to last element in map
 	int highestED = rit->first;
 	int cumDist = 0;
-	cout << "Edit distance hist:" << endl;
-	output << "Edit distance hist:" << endl;
-	for (int i = 0; i <= highestED; i++) {
-		cumDist += editDistanceHist[i];
-		cout << i << "\t" << cumDist << endl;
-		output << i << "\t" << cumDist << endl;
-	}
+    cout << "Total number of clusters: " << testNum-1 << endl;
+    output << "Total number of clusters: " << testNum-1 << endl;
 
-	cout << "guess substitutions:\t" << cumFinalGuessSubstitutions << endl;
-	cout << "guess deletions:\t" << cumFinalGuessDeletions << endl;
-	cout << "guess insertions:\t" << cumFinalGuessInsertions << endl;
-	cout << "guess edit dist:\t" << cumTotalFinalGuessEditDist << endl;
+    cout << "Edit distance hist:" << endl;
+    output << "Edit distance hist:" << endl;
+    for (int i = 0; i <= highestED; i++) {
+        cumDist += editDistanceHist[i];
+        cout << i << "\t" << cumDist << endl;
+        output << i << "\t" << cumDist << endl;
+    }
+
+    cout << "Substitution rate:\t" << cumFinalGuessSubstitutions << endl;
+    cout << "Deletion rate:\t" << cumFinalGuessDeletions << endl;
+    cout << "Insertion rate:\t" << cumFinalGuessInsertions << endl;
+    //cout << "guess edit dist:\t" << cumTotalFinalGuessEditDist << endl;
     cout << "Error rate:\t" << error_rate << endl;
-    cout << "Success rate:\t" << (double)(editDistanceHist[0])/editDistanceHist[highestED] << endl;
+    cout << "Success rate:\t" << (double)(editDistanceHist[0])/testNum << endl;
     cout << "number of majority test " << majoCounter << endl;
 
-	output << "guess substitutions:\t" << cumFinalGuessSubstitutions << endl;
-	output << "guess deletions:\t" << cumFinalGuessDeletions << endl;
-	output << "guess insertions:\t" << cumFinalGuessInsertions << endl;
-	output << "guess edit dist:\t" << cumTotalFinalGuessEditDist << endl;
+    output << "Substitution rate:\t" << cumFinalGuessSubstitutions << endl;
+    output << "Deletion rate:\t" << cumFinalGuessDeletions << endl;
+    output << "Insertion rate:\t" << cumFinalGuessInsertions << endl;
+    //output << "guess edit dist:\t" << cumTotalFinalGuessEditDist << endl;
     output << "Error rate:\t" << error_rate << endl;
-    output << "Success rate:\t" << (double)(editDistanceHist[0])/editDistanceHist[highestED] << endl;
+    output << "Success rate:\t" << (double)(editDistanceHist[0])/testNum << endl;
     output << "number of majority test " << majoCounter << endl;
 	input.close();
 	output.close();
@@ -559,13 +564,30 @@ void CasesStats(const string& inputFilename, const int maxCopies, const double E
 	input.close();
 }
 
+int getTestNum(const string& inputFilename){
+    ifstream input;
+    input.open(inputFilename.c_str());
+    if (!input.is_open()) {
+        cout << "Failed opening input file!" << endl;
+        return -1;
+    }
+    string line;
+    int count=0;
+    while (getline(input, line)) {
+        if (line[0]=='*') {
+            count++;
+        }
+    }
+    return count;
+}
+
 // TODO:	decide fix order by copy len. too long -> prioritize fix inserts, too short -> prioritize fix deletions
 
 int main() {
 
 	clock_t begin = clock();
 
-	int maxCopies = 100;
+	int maxCopies = 25;
 //	set<int> filter = { 4490, 4756, 4850, 4879, 4896, 4929, 4937, 4940, 4950, 4955, 4969, 4971, 4973, 4977, 4978, 4979,
 //			4981, 4983, 4985, 4986, 4987 };
 //	CasesStats("evyaR.txt", maxCopies, EDThresh, filter); // second batch: strand length 117. casesNum 4989. Luis: len 150, num 596499
@@ -589,8 +611,8 @@ int main() {
 
 //	int startCase = 200001;
 //	int endCase = 400000;
-    int startCase = 1;
-    int endCase = 4000000;
+    //int startCase = 1;
+    //int endCase = 4000000;
 
 	string outputFileName = "output.txt";
     string resultsFileName_success = "output-results-success.txt";
@@ -599,8 +621,9 @@ int main() {
 //	int startCase = 400001;
 //	int endCase = 596499;
 //	string outputFileName = "LuisOutC.txt";
+    int testNum=getTestNum("evyat.txt");
 
-    TestFromFileCaseRange("evyat.txt", outputFileName, resultsFileName_success, resultsFileName_fail, startCase, endCase, 150, maxCopies, delPatternLen,
+    TestFromFileCaseRange("evyat.txt", outputFileName, resultsFileName_success, resultsFileName_fail, 0, testNum, 150, maxCopies, delPatternLen,
             subPriority, delPriority, insPriority, maxReps);
 //	TestFromFile("evyaA.txt", testNum, 152, maxCopies, delPatternLen, subPriority, delPriority, insPriority,
 //				maxReps);
